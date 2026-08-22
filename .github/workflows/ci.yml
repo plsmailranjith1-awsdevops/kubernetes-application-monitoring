@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test Application
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        working-directory: app
+        run: pip install -r requirements.txt
+      - name: Validate Python
+        working-directory: app
+        run: python -m py_compile app.py
+
+  docker:
+    name: Build Docker Image
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build -t devops-k8s-app:${{ github.sha }} ./app
+
+  security:
+    name: Security Scan
+    needs: docker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t devops-k8s-app:${{ github.sha }} ./app
+      - name: Run Trivy scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: devops-k8s-app:${{ github.sha }}
+          format: table
+          severity: CRITICAL,HIGH
+          exit-code: 1
